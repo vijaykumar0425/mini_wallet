@@ -1,24 +1,20 @@
 from rest_framework import serializers
 from .models import Wallet
-from accounts.models import User
-from rest_framework.authtoken.models import Token
-
-
-class AccountInitializeSerializer(serializers.Serializer):
-    customer_xid = serializers.UUIDField()
-
-    def create_user_token(self):
-        try:
-            user = User.objects.get(id=self.customer_xid)
-            Token.objects.filter(user=user).delete()
-
-            token = Token.objects.get_or_create(user=user)
-            return token[0]
-        except User.DoesNotExist:
-            return None
+from django.utils import timezone
 
 
 class WalletSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wallet
-        fields = "__all__"
+        fields = '__all__'
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        ret.pop('is_disabled')
+        ret["status"] = "disabled" if instance.is_disabled else "enabled"
+        return ret
+
+    def save(self, **kwargs):
+        if self.validated_data.get('is_disabled') and self.instance.is_disabled is False:
+            self.instance.disabled_at = timezone.now()
+        return super().save(**kwargs)
